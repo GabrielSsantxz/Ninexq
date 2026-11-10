@@ -56,7 +56,7 @@ The admin dashboard lists live rooms and participants, reports room/participant/
 
 From the dashboard, **Entrar como admin** lets an authenticated administrator choose a display name and join a live room with privileges above its leader. Their name appears with an administrative shield badge. The browser receives a room-specific, single-use ticket that expires after one minute; the admin password is never sent through Socket.IO. Admins can manage participants and room settings, but cannot remove another admin or become the room leader. If the leader leaves while only an administrator remains, leadership stays unassigned until a regular participant joins.
 
-For local development with a backend on a non-default port, set `FRIENDS_API_PROXY` to its origin before starting Vite, for example `$env:FRIENDS_API_PROXY = "http://localhost:3312"`.
+For local development, the admin API accepts loopback origins (`localhost`, `127.0.0.1`, or `::1`) on any port, so using a different Vite port or hostname does not block admin login. Production still requires the exact public origin in `CLIENT_ORIGIN`. If the backend uses a non-default port, set `FRIENDS_API_PROXY` to its origin before starting Vite, for example `$env:FRIENDS_API_PROXY = "http://localhost:3312"`.
 
 The client can set `VITE_SOCKET_URL` when the Socket.IO server is not available at the same origin. STUN uses Google's public STUN endpoint by default. For networks that need TURN, set the following client build variables:
 

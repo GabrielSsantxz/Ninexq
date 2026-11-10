@@ -57,8 +57,9 @@ export default function App({ adminMode = false, adminCode = "", adminName = "",
   const [audioOn, setAudioOn] = useState(true);
   const [roomSoundsOn, setRoomSoundsOn] = useState(() => localStorage.getItem("friendsRoomSounds") !== "false");
   const [chatText, setChatText] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [collapsedLeft, setCollapsedLeft] = useState(false);
-  const [collapsedRight, setCollapsedRight] = useState(false);
+  const [collapsedRight, setCollapsedRight] = useState(() => window.matchMedia("(max-width: 760px)").matches);
   const [selectedStream, setSelectedStream] = useState("");
   const [showStreamStrip, setShowStreamStrip] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -562,9 +563,26 @@ export default function App({ adminMode = false, adminCode = "", adminName = "",
 
   function sendMessage(event) {
     event.preventDefault();
-    if (!chatText.trim()) return;
-    socket.emit("send-message", { text: chatText.trim() });
-    setChatText("");
+    const text = chatText.trim();
+    if (!text || sendingMessage) return;
+    if (!connected || !room) {
+      notify("Conecte-se à sala para enviar mensagens.");
+      return;
+    }
+
+    setSendingMessage(true);
+    socket.timeout(5000).emit("send-message", { text }, (timeoutError, response) => {
+      setSendingMessage(false);
+      if (timeoutError) {
+        notify("Não foi possível confirmar o envio. Tente novamente.");
+        return;
+      }
+      if (!response?.ok) {
+        notify(response?.message || "Não foi possível enviar a mensagem.");
+        return;
+      }
+      setChatText((current) => current.trim() === text ? "" : current);
+    });
   }
 
   async function toggleMicrophone() {
@@ -729,6 +747,14 @@ export default function App({ adminMode = false, adminCode = "", adminName = "",
         <div className="header-actions">
           <div className={`connection-pill ${connected ? "connected" : ""}`}><span className="connection-dot" />{connected ? "Conectado" : "Reconectando"}</div>
           <button className="button-invite" onClick={() => setModal("invite")}><Link size={15} /> Convidar</button>
+          <button
+            className="icon-button chat-toggle"
+            onClick={() => setCollapsedRight(!collapsedRight)}
+            aria-label={collapsedRight ? "Abrir conversa" : "Fechar conversa"}
+            aria-expanded={!collapsedRight}
+            aria-controls="room-chat-panel"
+            title={collapsedRight ? "Abrir conversa" : "Fechar conversa"}
+          ><MessageSquare size={16} /></button>
           {canManageRoom && <button className="icon-button header-manage" onClick={() => { setRoomDraft({ name: room.name, description: room.description, locked: room.locked }); setModal("settings"); }} title={isAdmin ? "Gerenciar como administrador" : "Gerenciar sala"}><SlidersHorizontal size={17} /></button>}
         </div>
       </header>
@@ -760,7 +786,7 @@ export default function App({ adminMode = false, adminCode = "", adminName = "",
               <span>{streams.length} telas</span>
             </button>
             {showStreamStrip && <div className="stream-strip">{streams.map((person) => <button key={person.id} className={`stream-card${person.id === activeStream?.id ? " active" : ""}`} onClick={() => setSelectedStream(person.id)} aria-pressed={person.id === activeStream?.id}>
-              <span className="stream-card-preview"><VideoSurface stream={remoteStreams[person.id]} muted /><span className="stream-card-type">{person.sharing ? <Monitor size={11} /> : <Video size={11} />}</span></span>
+              <span className="stream-card-preview"><VideoSurface stream={person.id === selfId ? localStream : remoteStreams[person.id]} muted /><span className="stream-card-type">{person.sharing ? <Monitor size={11} /> : <Video size={11} />}</span></span>
               <span className="stream-card-name"><span className="live-indicator" />{person.name}</span>
             </button>)}</div>}
           </div>}
@@ -772,14 +798,14 @@ export default function App({ adminMode = false, adminCode = "", adminName = "",
           </div>
           <div className="stage-footer"><span><span className="footer-live-dot" /> {sharingOn ? "Sua tela está sendo compartilhada" : cameraOn ? "Sua câmera está ativa" : "Sala pronta para compartilhar"}</span><span>Mídia protegida pelo WebRTC</span></div>
         </section>
-        <aside className={`chat-panel ${collapsedRight ? "is-collapsed" : ""}`}>
+        <aside id="room-chat-panel" className={`chat-panel ${collapsedRight ? "is-collapsed" : ""}`}>
           <div className="panel-top"><div className="panel-heading"><MessageSquare size={15} /><span>CONVERSA</span><span className="chat-live-dot" /></div><button className="icon-button subtle panel-toggle" onClick={() => setCollapsedRight(!collapsedRight)} aria-label="Recolher conversa"><ChevronDown size={16} /></button></div>
           <div className="chat-messages">
             <div className="chat-intro"><span className="chat-intro-icon"><LockKeyhole size={14} /></span><p>Esta conversa é só de vocês.<br /><span>Mensagens visíveis para quem está na sala.</span></p></div>
             {messages.map((message) => <div key={message.id} className={`chat-message${message.senderId === selfId ? " own-message" : ""}`}><div className="message-heading"><b>{message.senderId === selfId ? "Você" : message.sender}</b><time>{formatTime(message.timestamp)}</time></div><p>{message.text}</p></div>)}
             <div ref={chatEndRef} />
           </div>
-          <form className="chat-composer" onSubmit={sendMessage}><textarea value={chatText} onChange={(event) => setChatText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(event); } }} maxLength="1000" placeholder="Escreva uma mensagem..." rows="1" /><div className="composer-bottom"><span>Enter para enviar · Shift + Enter para nova linha</span><button type="submit" disabled={!chatText.trim()} aria-label="Enviar mensagem"><span>Enviar</span><span>↑</span></button></div></form>
+          <form className="chat-composer" onSubmit={sendMessage}><textarea value={chatText} onChange={(event) => setChatText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(event); } }} maxLength="1000" placeholder="Escreva uma mensagem..." rows="1" /><div className="composer-bottom"><span>Enter para enviar · Shift + Enter para nova linha</span><button type="submit" disabled={!chatText.trim() || sendingMessage || !connected} aria-label="Enviar mensagem"><span>{sendingMessage ? "Enviando…" : "Enviar"}</span><span>↑</span></button></div></form>
         </aside>
       </div>
       <div className="control-dock">

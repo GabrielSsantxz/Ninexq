@@ -170,7 +170,17 @@ function requireAdmin(req, res, next) {
 
 function requireSameOrigin(req, res, next) {
   const origin = req.get("origin");
-  if (origin && !CLIENT_ORIGINS.includes(origin)) {
+  let isLocalDevelopmentOrigin = false;
+  if (origin && process.env.NODE_ENV !== "production") {
+    try {
+      const { protocol, hostname } = new URL(origin);
+      isLocalDevelopmentOrigin = ["http:", "https:"].includes(protocol)
+        && ["localhost", "127.0.0.1", "[::1]"].includes(hostname);
+    } catch {
+      isLocalDevelopmentOrigin = false;
+    }
+  }
+  if (origin && !CLIENT_ORIGINS.includes(origin) && !isLocalDevelopmentOrigin) {
     return res.status(403).json({ message: "Origem não autorizada." });
   }
   next();
@@ -437,14 +447,20 @@ io.on("connection", (socket) => {
 
   socket.on("leave-room", () => leaveRoom(socket));
 
-  socket.on("send-message", (payload = {}) => {
+  socket.on("send-message", (payload = {}, acknowledge) => {
     const room = getRoomFor(socket);
     const text = cleanText(payload.text, 1000);
-    if (!room || !text) return;
+    if (!room || !text) {
+      acknowledge?.({ ok: false, message: "Você não está conectado a uma sala." });
+      return;
+    }
     const now = Date.now();
     const previous = chatLimits.get(socket.id) || [];
     const recent = previous.filter((timestamp) => now - timestamp < 10_000);
-    if (recent.length >= 8) return error(socket, "Aguarde um instante antes de enviar outra mensagem.");
+    if (recent.length >= 8) {
+      acknowledge?.({ ok: false, message: "Aguarde um instante antes de enviar outra mensagem." });
+      return;
+    }
     recent.push(now);
     chatLimits.set(socket.id, recent);
     io.to(room.code).emit("new-message", {
@@ -454,6 +470,7 @@ io.on("connection", (socket) => {
       text,
       timestamp: now
     });
+    acknowledge?.({ ok: true });
   });
 
   socket.on("media-state", (payload = {}) => {
