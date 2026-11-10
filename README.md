@@ -33,13 +33,13 @@ npm start
 The production server serves the built client, API, and Socket.IO from the same origin. Configure the provider's `PORT` environment variable if it does not supply one automatically. In the provider's environment settings, set:
 
 - `NODE_ENV=production`
-- `CLIENT_ORIGIN=https://your-public-domain.example` — the exact public origin, without a trailing slash. Multiple comma-separated origins are supported when needed.
+- `CLIENT_ORIGIN=https://your-public-domain.example` — the public site origin. Multiple comma-separated origins are supported when needed; paths are ignored.
 - `ADMIN_PASSWORD` — a new, strong production-only password. Do not copy credentials from a local `.env`.
 - `FRIENDS_PUBLIC_URL=https://your-public-domain.example` — public URL used by Discord invite links.
 
-The Node service must accept HTTPS traffic through the platform's TLS proxy and support long-lived WebSocket connections for Socket.IO. If a separate reverse proxy is used, forward WebSocket upgrade requests and route `/api`, `/socket.io`, `/watch/*`, and `/` to the same service. Direct navigation to `/watch/...` requires the SPA fallback, which is enabled by the bundled Express server. Set `VITE_TURN_URL`, `VITE_TURN_USERNAME`, and `VITE_TURN_CREDENTIAL` as build-time environment variables if users need TURN for media connectivity; these values are embedded in the client bundle, so use scoped/temporary TURN credentials.
+The Node service must accept HTTPS traffic through the platform's TLS proxy and support long-lived WebSocket connections for Socket.IO. Open `/admin` on the same public domain as the site. Same-origin browser requests are accepted automatically; set `CLIENT_ORIGIN` to the site's public origin for Socket.IO and any separate frontend origins. If a separate frontend is hosted on another domain, set the frontend build variable `VITE_API_URL` to the backend's public base URL and include the frontend origin in the backend's comma-separated `CLIENT_ORIGIN`; admin cookies require HTTPS. If a separate reverse proxy is used, forward WebSocket upgrade requests and route `/api`, `/socket.io`, `/watch/*`, and `/` to the same service. Direct navigation to `/watch/...` requires the SPA fallback, which is enabled by the bundled Express server. Set `VITE_TURN_URL`, `VITE_TURN_USERNAME`, and `VITE_TURN_CREDENTIAL` as build-time environment variables if users need TURN for media connectivity; these values are embedded in the client bundle, so use scoped/temporary TURN credentials.
 
-The production server exits with a clear error if `ADMIN_PASSWORD`, `CLIENT_ORIGIN`, or the built client is missing. For a separate frontend host, set `CLIENT_ORIGIN` to that exact origin and configure the frontend build's `VITE_SOCKET_URL` to the backend's public URL.
+The production server exits with a clear error if `ADMIN_PASSWORD`, `CLIENT_ORIGIN`, or the built client is missing. For a separate frontend host, set `CLIENT_ORIGIN` to the frontend's exact public origin and configure the frontend build's `VITE_API_URL` and `VITE_SOCKET_URL` to the backend's public URL.
 
 Use a persistent, single Node service rather than serverless functions or multiple replicas: room state, participants, Discord-to-room mappings, admin sessions, and chat are currently in memory and are lost on restart. Multi-instance hosting needs shared room/session storage and a Socket.IO adapter before scaling horizontally.
 
@@ -58,7 +58,7 @@ From the dashboard, **Entrar como admin** lets an authenticated administrator ch
 
 For local development, the admin API accepts loopback origins (`localhost`, `127.0.0.1`, or `::1`) on any port, so using a different Vite port or hostname does not block admin login. Production still requires the exact public origin in `CLIENT_ORIGIN`. If the backend uses a non-default port, set `FRIENDS_API_PROXY` to its origin before starting Vite, for example `$env:FRIENDS_API_PROXY = "http://localhost:3312"`.
 
-The client can set `VITE_SOCKET_URL` when the Socket.IO server is not available at the same origin. STUN uses Google's public STUN endpoint by default. For networks that need TURN, set the following client build variables:
+The client can set `VITE_SOCKET_URL` when the Socket.IO server is not available at the same origin. `VITE_API_URL` sets the HTTP API origin separately; if omitted, the API uses `VITE_SOCKET_URL` or the current page origin. STUN uses Google's public STUN endpoint by default. For networks that need TURN, set the following client build variables:
 
 - `VITE_TURN_URL` — one or more comma-separated TURN URLs
 - `VITE_TURN_USERNAME` — TURN username

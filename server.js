@@ -159,7 +159,8 @@ function adminCookie(req) {
 
 function sessionCookie(value, maxAge) {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `friends_admin=${encodeURIComponent(value)}; Path=/api/admin; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secure}`;
+  const sameSite = process.env.NODE_ENV === "production" ? "None" : "Strict";
+  return `friends_admin=${encodeURIComponent(value)}; Path=/api/admin; HttpOnly; SameSite=${sameSite}; Max-Age=${maxAge}${secure}`;
 }
 
 function requireAdmin(req, res, next) {
@@ -178,12 +179,17 @@ function requireAdmin(req, res, next) {
 function requireSameOrigin(req, res, next) {
   const origin = req.get("origin");
   const browserConfirmsSameOrigin = req.get("sec-fetch-site") === "same-origin";
+  const requestHost = req.get("host")?.toLowerCase();
   let configuredOrigin = false;
+  let originMatchesRequestHost = false;
   if (origin) {
     try {
-      configuredOrigin = CLIENT_ORIGINS.includes(new URL(origin).origin);
+      const parsedOrigin = new URL(origin);
+      configuredOrigin = CLIENT_ORIGINS.includes(parsedOrigin.origin);
+      originMatchesRequestHost = Boolean(requestHost) && parsedOrigin.host.toLowerCase() === requestHost;
     } catch {
       configuredOrigin = false;
+      originMatchesRequestHost = false;
     }
   }
   let isLocalDevelopmentOrigin = false;
@@ -196,8 +202,8 @@ function requireSameOrigin(req, res, next) {
       isLocalDevelopmentOrigin = false;
     }
   }
-  if (origin && !configuredOrigin && !isLocalDevelopmentOrigin && !browserConfirmsSameOrigin) {
-    return res.status(403).json({ message: "Origem não autorizada. Configure CLIENT_ORIGIN com o domínio público do site." });
+  if (origin && !configuredOrigin && !originMatchesRequestHost && !isLocalDevelopmentOrigin && !browserConfirmsSameOrigin) {
+    return res.status(403).json({ message: "Origem não autorizada. Abra o painel pelo mesmo domínio do site ou configure CLIENT_ORIGIN." });
   }
   next();
 }

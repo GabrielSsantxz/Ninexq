@@ -1,5 +1,11 @@
 import { io } from "socket.io-client";
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_SOCKET_URL || "").replace(/\/+$/, "");
+
+export function apiUrl(path) {
+  return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 export function createFriendsSocket() {
   return io(import.meta.env.VITE_SOCKET_URL || undefined, {
     autoConnect: false,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Shield, ShieldAlert } from "lucide-react";
 import App from "./App.jsx";
+import { apiUrl } from "./socket.js";
 
 export default function AdminRoomPage() {
   const [access, setAccess] = useState({ status: "loading", ticket: "", message: "" });
@@ -15,7 +16,7 @@ export default function AdminRoomPage() {
         if (!/^[A-F0-9]{10}$/.test(code) || !ticket) {
           throw new Error("Volte ao painel e entre na sala pelo botão “Entrar como admin”.");
         }
-        const response = await fetch(`/api/admin/session`, { credentials: "same-origin" });
+        const response = await fetch(apiUrl("/api/admin/session"), { credentials: "include" });
         const session = await response.json().catch(() => ({}));
         if (!response.ok || !session.authenticated) {
           throw new Error(session.message || "Sua sessão administrativa expirou. Entre novamente no painel.");

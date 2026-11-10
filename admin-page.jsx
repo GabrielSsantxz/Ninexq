@@ -4,10 +4,11 @@ import {
   KeyRound, LockKeyhole, LogOut, Monitor, RefreshCw, Search, Shield,
   ShieldCheck, UnlockKeyhole, Users, Video
 } from "lucide-react";
+import { apiUrl } from "./socket.js";
 
 async function adminRequest(path, options = {}) {
-  const response = await fetch(path, {
-    credentials: "same-origin",
+  const response = await fetch(apiUrl(path), {
+    credentials: "include",
     ...options,
     headers: {
       ...(options.body ? { "Content-Type": "application/json" } : {}),
@@ -16,7 +17,10 @@ async function adminRequest(path, options = {}) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.message || "Não foi possível concluir a operação.");
+    const message = response.status === 404
+      ? "A API administrativa não foi encontrada. Configure VITE_API_URL com a URL pública do backend e publique o frontend novamente."
+      : payload.message || "Não foi possível concluir a operação.";
+    const error = new Error(message);
     error.status = response.status;
     throw error;
   }

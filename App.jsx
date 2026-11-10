@@ -7,7 +7,7 @@ import {
   Users, Video, VideoOff, Volume2, VolumeX, X
 } from "lucide-react";
 import Modal from "./Modal.jsx";
-import { createFriendsSocket, iceServers } from "./socket.js";
+import { apiUrl, createFriendsSocket, iceServers } from "./socket.js";
 
 function initials(name = "") {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
@@ -246,9 +246,9 @@ export default function App({ adminMode = false, adminCode = "", adminName = "",
         let ticket = reconnecting ? "" : adminTicketRef.current;
         adminTicketRef.current = "";
         if (!ticket) {
-          const response = await fetch(`/api/admin/rooms/${encodeURIComponent(code)}/access-ticket`, {
+          const response = await fetch(apiUrl(`/api/admin/rooms/${encodeURIComponent(code)}/access-ticket`), {
             method: "POST",
-            credentials: "same-origin"
+            credentials: "include"
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(payload.message || "Não foi possível gerar acesso administrativo.");
@@ -513,7 +513,7 @@ export default function App({ adminMode = false, adminCode = "", adminName = "",
       const roomFromLink = new URLSearchParams(window.location.search).get("room");
       const slug = window.location.pathname.match(/^\/watch\/((?:priv|pub)-[a-z0-9]{6})$/i)?.[1];
       if (slug) {
-        fetch(`/api/rooms/by-link/${encodeURIComponent(slug)}`)
+        fetch(apiUrl(`/api/rooms/by-link/${encodeURIComponent(slug)}`))
           .then(async (response) => {
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(payload.message || "Não foi possível encontrar a sala.");
