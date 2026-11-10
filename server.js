@@ -14,7 +14,14 @@ const PORT = Number(process.env.PORT) || 3001;
 const CLIENT_ORIGINS = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .map((origin) => {
+    try {
+      return new URL(origin).origin;
+    } catch {
+      throw new Error(`Invalid CLIENT_ORIGIN value: ${origin}`);
+    }
+  });
 const CLIENT_DIST_DIR = fileURLToPath(new URL("./dist/", import.meta.url));
 if (process.env.NODE_ENV === "production") {
   if (!process.env.ADMIN_PASSWORD) {
@@ -170,6 +177,15 @@ function requireAdmin(req, res, next) {
 
 function requireSameOrigin(req, res, next) {
   const origin = req.get("origin");
+  const browserConfirmsSameOrigin = req.get("sec-fetch-site") === "same-origin";
+  let configuredOrigin = false;
+  if (origin) {
+    try {
+      configuredOrigin = CLIENT_ORIGINS.includes(new URL(origin).origin);
+    } catch {
+      configuredOrigin = false;
+    }
+  }
   let isLocalDevelopmentOrigin = false;
   if (origin && process.env.NODE_ENV !== "production") {
     try {
@@ -180,8 +196,8 @@ function requireSameOrigin(req, res, next) {
       isLocalDevelopmentOrigin = false;
     }
   }
-  if (origin && !CLIENT_ORIGINS.includes(origin) && !isLocalDevelopmentOrigin) {
-    return res.status(403).json({ message: "Origem não autorizada." });
+  if (origin && !configuredOrigin && !isLocalDevelopmentOrigin && !browserConfirmsSameOrigin) {
+    return res.status(403).json({ message: "Origem não autorizada. Configure CLIENT_ORIGIN com o domínio público do site." });
   }
   next();
 }
