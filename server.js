@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import express from "express";
 import { Server } from "socket.io";
 import { startDiscordBot } from "./bot.js";
+import { resolveFriendsPublicUrl } from "./public-url.js";
 
 dotenv.config({ path: fileURLToPath(new URL("./.env", import.meta.url)) });
 
@@ -22,6 +23,13 @@ const CLIENT_ORIGINS = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
       throw new Error(`Invalid CLIENT_ORIGIN value: ${origin}`);
     }
   });
+const FRIENDS_PUBLIC_URL = resolveFriendsPublicUrl({
+  friendsPublicUrl: process.env.FRIENDS_PUBLIC_URL,
+  railwayPublicDomain: process.env.RAILWAY_PUBLIC_DOMAIN,
+  clientOrigins: CLIENT_ORIGINS,
+  isProduction: process.env.NODE_ENV === "production",
+  discordEnabled: Boolean(process.env.DISCORD_BOT_TOKEN)
+});
 const CLIENT_DIST_DIR = fileURLToPath(new URL("./dist/", import.meta.url));
 if (process.env.NODE_ENV === "production") {
   if (!process.env.ADMIN_PASSWORD) {
@@ -628,7 +636,7 @@ startDiscordBot({
   token: process.env.DISCORD_BOT_TOKEN,
   guildId: process.env.DISCORD_GUILD_ID,
   logChannelId: process.env.DISCORD_LOG_CHANNEL_ID,
-  friendsUrl: process.env.FRIENDS_PUBLIC_URL || CLIENT_ORIGINS[0],
+  friendsUrl: FRIENDS_PUBLIC_URL,
   ensureRoom: ensureDiscordRoom,
   findRoom: findDiscordRoom,
   endRoom

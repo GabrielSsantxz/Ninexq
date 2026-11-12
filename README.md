@@ -35,7 +35,7 @@ The production server serves the built client, API, and Socket.IO from the same 
 - `NODE_ENV=production`
 - `CLIENT_ORIGIN=https://your-public-domain.example` — the public site origin. Multiple comma-separated origins are supported when needed; paths are ignored.
 - `ADMIN_PASSWORD` — a new, strong production-only password. Do not copy credentials from a local `.env`.
-- `FRIENDS_PUBLIC_URL=https://your-public-domain.example` — public URL used by Discord invite links.
+- `FRIENDS_PUBLIC_URL=https://your-public-domain.example` — public HTTPS URL used by Discord invite links. Railway's `RAILWAY_PUBLIC_DOMAIN` is used automatically if this is omitted or set to a local URL.
 
 The Node service must accept HTTPS traffic through the platform's TLS proxy and support long-lived WebSocket connections for Socket.IO. Open `/admin` on the same public domain as the site. Same-origin browser requests are accepted automatically; set `CLIENT_ORIGIN` to the site's public origin for Socket.IO and any separate frontend origins. If a separate frontend is hosted on another domain, set the frontend build variable `VITE_API_URL` to the backend's public base URL and include the frontend origin in the backend's comma-separated `CLIENT_ORIGIN`; admin cookies require HTTPS. If a separate reverse proxy is used, forward WebSocket upgrade requests and route `/api`, `/socket.io`, `/watch/*`, and `/` to the same service. Direct navigation to `/watch/...` requires the SPA fallback, which is enabled by the bundled Express server. Set `VITE_TURN_URL`, `VITE_TURN_USERNAME`, and `VITE_TURN_CREDENTIAL` as build-time environment variables if users need TURN for media connectivity; these values are embedded in the client bundle, so use scoped/temporary TURN credentials.
 
@@ -68,7 +68,7 @@ TURN credentials are delivered to the browser as part of the client build; use s
 
 ### Discord voice-channel integration
 
-Copy `.env.example` to `.env` and configure `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID`, and `DISCORD_LOG_CHANNEL_ID`. The log channel defaults to the ID provided for this setup. Set `FRIENDS_PUBLIC_URL` to the public site URL users should open; its default is `CLIENT_ORIGIN`. The environment variable name is retained for compatibility. Never commit `.env` or share the bot token.
+Copy `.env.example` to `.env` for local development and configure `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID`, and `DISCORD_LOG_CHANNEL_ID`. The log channel defaults to the ID provided for this setup. For production, set `FRIENDS_PUBLIC_URL` to the public HTTPS URL users should open; on Railway the `RAILWAY_PUBLIC_DOMAIN` value is used automatically if the explicit URL is absent or points to localhost. The bot refuses to start with a local or non-HTTPS production invite URL. Never commit `.env` or share the bot token.
 
 Install the Discord application with the `bot` and `applications.commands` scopes. Grant it access to voice channels, permission to view and send messages in the log channel, and **Manage Channels** permission to update voice-channel status. The bot requests the `Guilds` and `Guild Voice States` gateway intents.
 
