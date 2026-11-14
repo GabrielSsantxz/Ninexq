@@ -27,7 +27,8 @@ const FRIENDS_PUBLIC_URL = resolveFriendsPublicUrl({
   friendsPublicUrl: process.env.FRIENDS_PUBLIC_URL,
   railwayPublicDomain: process.env.RAILWAY_PUBLIC_DOMAIN,
   clientOrigins: CLIENT_ORIGINS,
-  isProduction: process.env.NODE_ENV === "production",
+  isProduction: process.env.NODE_ENV === "production"
+    || Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RAILWAY_SERVICE_ID),
   discordEnabled: Boolean(process.env.DISCORD_BOT_TOKEN)
 });
 const CLIENT_DIST_DIR = fileURLToPath(new URL("./dist/", import.meta.url));
@@ -641,3 +642,7 @@ startDiscordBot({
   findRoom: findDiscordRoom,
   endRoom
 });
+
+if (process.env.DISCORD_BOT_TOKEN) {
+  console.info(`Discord voice status links use ${FRIENDS_PUBLIC_URL}`);
+}

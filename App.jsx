@@ -180,20 +180,34 @@ export default function App({ adminMode = false, adminCode = "", adminName = "",
     if (existing) return existing;
     const connection = new RTCPeerConnection({ iceServers: iceServers() });
     const isInitiator = selfIdRef.current.localeCompare(peerId) < 0;
-    connection.onicecandidate = (event) => {
-      if (event.candidate) socket.emit("signal", { targetId: peerId, type: "ice-candidate", data: event.candidate });
-    };
-    connection.onnegotiationneeded = async () => {
-      if (!isInitiator || connection.signalingState !== "stable") return;
+    connection.negotiationPending = false;
+    connection.iceRestartAttempts = 0;
+
+    const negotiate = async () => {
+      if (!isInitiator || !connection.negotiationPending || connection.makingOffer
+        || connection.signalingState !== "stable") return;
+      connection.negotiationPending = false;
       try {
         connection.makingOffer = true;
         await connection.setLocalDescription();
         socket.emit("signal", { targetId: peerId, type: "offer", data: connection.localDescription });
       } catch (error) {
+        connection.negotiationPending = true;
         notify(`Não foi possível iniciar a conexão: ${error.message}`);
       } finally {
         connection.makingOffer = false;
       }
+    };
+
+    connection.onicecandidate = (event) => {
+      if (event.candidate) socket.emit("signal", { targetId: peerId, type: "ice-candidate", data: event.candidate });
+    };
+    connection.onnegotiationneeded = () => {
+      connection.negotiationPending = true;
+      negotiate();
+    };
+    connection.onsignalingstatechange = () => {
+      if (connection.signalingState === "stable") negotiate();
     };
     connection.ontrack = (event) => {
       let incoming = remoteMediaStreams.current.get(peerId);
@@ -212,6 +226,23 @@ export default function App({ adminMode = false, adminCode = "", adminName = "",
           delete next[peerId];
           return next;
         });
+      }
+      if (connection.connectionState === "failed") {
+        notify("Não foi possível conectar a mídia deste participante. Verifique a rede e configure um servidor TURN se necessário.");
+      }
+    };
+    connection.oniceconnectionstatechange = () => {
+      if (connection.iceConnectionState === "connected" || connection.iceConnectionState === "completed") {
+        connection.iceRestartAttempts = 0;
+        return;
+      }
+      if (connection.iceConnectionState === "failed" && isInitiator && connection.iceRestartAttempts < 2) {
+        connection.iceRestartAttempts += 1;
+        try {
+          connection.restartIce();
+        } catch (error) {
+          notify(`Não foi possível recuperar a conexão de mídia: ${error.message}`);
+        }
       }
     };
     peerConnections.current.set(peerId, connection);
